@@ -20,6 +20,7 @@ namespace generalized_langevin {
             double friction_coefficient;
             double coupling_coefficient;
             double K_b;
+            double equilibrium_length;
 
             Particle bath;//熱浴のダミー粒子
             Particle particle;
@@ -51,6 +52,7 @@ namespace generalized_langevin {
         friction_coefficient = toml::find<double>(input_setup_file, "constants", "friction_coefficient");
         coupling_coefficient = toml::find<double>(input_setup_file, "constants", "coupling_coefficient");
         K_b = toml::find<double>(input_setup_file, "constants", "K_b");
+        equilibrium_length = toml::find<double>(input_setup_file, "constants", "equilibrium_length");
 
         //熱浴と粒子の初期化
         bath.x = toml::find<double>(input_setup_file, "bath", "x");
@@ -166,6 +168,56 @@ namespace generalized_langevin {
         const double next_vz = b.vx*term1*term2 + (delta_t/2.0)*term2*(xi_t[2] + xi_tph[2]);
 
         return {next_vx, next_vy, next_vz};
+    }
+
+    std::array<double, 3> Simulator::calculate_coordinate(Particle p, Particle b) noexcept {
+        std::array<double, 3> vec;
+        vec[0] = p.x - b.x;
+        vec[1] = p.y - b.y;
+        vec[2] = p.x - b.z;
+        const double distance = std::sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+        
+        const double term1 = (-1.0*coupling_coefficient*(distance - equilibrium_length)) /distance;
+        std::array<double,3> f;
+        f[0] = term1*vec[0];
+        f[1] = term1*vec[1];
+        f[2] = term1*vec[2];
+
+        const double next_x = p.x + p.vx*delta_t + (f[0]/p.mass)*delta_t*delta_t/2.0;
+        const double next_y = p.y + p.vy*delta_t + (f[1]/p.mass)*delta_t*delta_t/2.0;
+        const double next_z = p.z + p.vz*delta_t + (f[2]/p.mass)*delta_t*delta_t/2.0;
+
+        return {next_x, next_y, next_z};
+    }
+
+    std::array<double, 3> Simulator::calculate_velocity(Particle p, Particle new_p, Particle b) noexcept {
+        std::array<double, 3> vec;
+        vec[0] = p.x - b.x;
+        vec[1] = p.y - b.y;
+        vec[2] = p.x - b.z;
+        const double distance = std::sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);  
+        const double term1 = (-1.0*coupling_coefficient*(distance - equilibrium_length)) /distance;
+        std::array<double,3> f;
+        f[0] = term1*vec[0];
+        f[1] = term1*vec[1];
+        f[2] = term1*vec[2];
+
+        std::array<double, 3> next_vec;
+        next_vec[0] = new_p.x - b.x;
+        next_vec[1] = new_p.y - b.y;
+        next_vec[2] = new_p.z - b.z;
+        const double next_distance = std::sqrt(next_vec[0]*next_vec[0] + next_vec[1]*next_vec[1] + next_vec[2]*next_vec[2]);
+        const double next_term1 = (-1.0*coupling_coefficient*(next_distance - equilibrium_length)) /next_distance;
+        std::array<double, 3> next_f;
+        next_f[0] = next_term1*next_vec[0];
+        next_f[1] = next_term1*next_vec[1];
+        next_f[2] = next_term1*next_vec[2];
+
+        const double next_vx = p.vx + (delta_t/2.0)*(next_f[0] + f[0])/p.mass;
+        const double next_vy = p.vy + (delta_t/2.0)*(next_f[1] + f[1])/p.mass;
+        const double next_vz = p.vz + (delta_t/2.0)*(next_f[2] + f[2])/p.mass;
+
+        retutn {next_vx, next_vy, next_vz};
     }
 
     void  Simulator::write_output(std::size_t step_index) noexcept {

@@ -41,7 +41,7 @@ namespace generalized_langevin {
             //熱浴の座標と速度をランジュバン方程式に従って求める関数
             std::array<double, 3> langevin_coordinate(Particle b) noexcept;
             std::array<double, 3> langevin_velocity(Particle b) noexcept;
-            void write_output() noexcept;
+            void write_output(std::size_t step_index) noexcept;
     };//Simulator
 
     Simulator::Simulator(const std::string& input_setup_file_path) {
@@ -106,11 +106,11 @@ namespace generalized_langevin {
     }//constructor
 
     void Simulator::run() noexcept {
-        write_output();
+        write_output(0);
         for (std::size_t step_index = 1; step_index <= step_num; ++step_index) {
             step();
             if (step_index%save_step_num == 0) {
-                write_output();
+                write_output(step_index);
             }
         }
     }
@@ -166,6 +166,18 @@ namespace generalized_langevin {
         const double next_vz = b.vx*term1*term2 + (delta_t/2.0)*term2*(xi_t[2] + xi_tph[2]);
 
         return {next_vx, next_vy, next_vz};
+    }
+
+    void  Simulator::write_output(std::size_t step_index) noexcept {
+        //座標の書き出し
+        out_coordinate << "2" << std::endl;
+        out_coordinate << std::endl;
+        out_coordinate << "H " << bath.x << " " << bath.y << " " << bath.z << std::endl;
+        out_coordinate << "C " << particle.x << " " << particle.y << " " << particle.z << std::endl;
+
+        //運動エネルギーの書き出し
+        double kinetic_energy = particle.mass*(std::pow(particle.vx, 2.0) + std::pow(particle.vy, 2.0) + std::pow(particle.vz, 2.0))/2.0;
+        out_energy << step_index << " " << kinetic_energy << std::endl;
     }
 
 }//generalized_langevin

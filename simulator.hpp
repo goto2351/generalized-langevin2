@@ -217,7 +217,7 @@ namespace generalized_langevin {
         const double next_vy = p.vy + (delta_t/2.0)*(next_f[1] + f[1])/p.mass;
         const double next_vz = p.vz + (delta_t/2.0)*(next_f[2] + f[2])/p.mass;
 
-        retutn {next_vx, next_vy, next_vz};
+        return {next_vx, next_vy, next_vz};
     }
 
     void  Simulator::write_output(std::size_t step_index) noexcept {

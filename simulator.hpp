@@ -36,8 +36,8 @@ namespace generalized_langevin {
 
             void step() noexcept;
             //粒子の座標と速度を求める関数
-            std::array<double, 3> calculate_coordinate(Particle p) noexcept;
-            std::array<double, 3> calculate_velocity(Particle p, Particle new_p) noexcept;
+            std::array<double, 3> calculate_coordinate(Particle p, Particle b) noexcept;
+            std::array<double, 3> calculate_velocity(Particle p, Particle new_p, Particle b) noexcept;
             //熱浴の座標と速度をランジュバン方程式に従って求める関数
             std::array<double, 3> langevin_coordinate(Particle b) noexcept;
             std::array<double, 3> langevin_velocity(Particle b) noexcept;
@@ -104,6 +104,69 @@ namespace generalized_langevin {
             xi_engine(random_engine)
         };
     }//constructor
+
+    void Simulator::run() noexcept {
+        write_output();
+        for (std::size_t step_index = 1; step_index <= step_num; ++step_index) {
+            step();
+            if (step_index%save_step_num == 0) {
+                write_output();
+            }
+        }
+    }
+
+    void Simulator::step() noexcept {
+        Particle new_bath = bath;
+        Particle new_particle = particle;
+
+        const auto [new_bath_x, new_bath_y, new_bath_z] = langevin_coordinate(bath);
+        new_bath.x = new_bath_x;
+        new_bath.y = new_bath_y;
+        new_bath.z = new_bath_z;
+        const auto [new_bath_vx, new_bath_vy, new_bath_vz] = langevin_velocity(bath);
+        new_bath.vx = new_bath_vx;
+        new_bath.vy = new_bath_vy;
+        new_bath.vz = new_bath_vz;
+
+        const auto [new_particle_x, new_particle_y, new_particle_z] = calculate_coordinate(particle, bath);
+        new_particle.x = new_particle_x;
+        new_particle.y = new_particle_y;
+        new_particle.z = new_particle_z;
+        const auto [new_particle_vx, new_particle_vy, new_particle_vz] = calculate_velocity(particle, new_particle, bath);
+        new_particle.vx = new_particle_vx;
+        new_particle.vy = new_particle_vy;
+        new_particle.vz = new_particle_vz;
+
+        bath = new_bath;
+        particle = new_particle;
+
+        xi_t = xi_tph;
+        xi_tph = {
+            xi_engine(random_engine),
+            xi_engine(random_engine),
+            xi_engine(random_engine)
+        };
+    }
+
+    std::array<double, 3> Simulator::langevin_coordinate(Particle b) noexcept {
+        //速度Verlet法で熱浴の次の時刻の座標を求める
+        const double next_x = b.x + b.vx*delta_t*(1.0-(friction_coefficient*delta_t)/2.0) + ((delta_t*delta_t)/2.0)*xi_t[0];
+        const double next_y = b.y + b.vy*delta_t*(1.0-(friction_coefficient*delta_t)/2.0) + ((delta_t*delta_t)/2.0)*xi_t[1];
+        const double next_z = b.z + b.vz*delta_t*(1.0-(friction_coefficient*delta_t)/2.0) + ((delta_t*delta_t)/2.0)*xi_t[2];
+
+        return {next_x, next_y, next_z};
+    }
+
+    std::array<double, 3> Simulator::langevin_velocity(Particle b) noexcept {
+        const double term1 = 1.0 - (friction_coefficient*delta_t)/2.0;
+        const double term2 = 1.0 - (friction_coefficient*delta_t)/2.0 + ((friction_coefficient*delta_t)/2.0)*((friction_coefficient*delta_t)/2.0);
+
+        const double next_vx = b.vx*term1*term2 + (delta_t/2.0)*term2*(xi_t[0] + xi_tph[0]);
+        const double next_vy = b.vx*term1*term2 + (delta_t/2.0)*term2*(xi_t[1] + xi_tph[1]);
+        const double next_vz = b.vx*term1*term2 + (delta_t/2.0)*term2*(xi_t[2] + xi_tph[2]);
+
+        return {next_vx, next_vy, next_vz};
+    }
 
 }//generalized_langevin
 

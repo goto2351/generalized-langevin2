@@ -78,7 +78,7 @@ namespace generalized_langevin {
             std::cerr << "cannot open:" << working_path + "/" + project_name + ".xyz" << std::endl;
             std::exit(1);
         }
-        out_energy.open(working_path + "/" + project_name + "_energy.txt");
+        out_energy.open(working_path + "/" + project_name + "_energy.csv");
         if(!out_energy) {
             std::cerr << "cannot open:" << working_path + "/" + project_name + "_energy.txt" << std::endl;
             std::exit(1);
@@ -229,7 +229,7 @@ namespace generalized_langevin {
 
         //運動エネルギーの書き出し
         double kinetic_energy = particle.mass*(std::pow(particle.vx, 2.0) + std::pow(particle.vy, 2.0) + std::pow(particle.vz, 2.0))/2.0;
-        out_energy << step_index << " " << kinetic_energy << std::endl;
+        out_energy << step_index << "," << kinetic_energy << std::endl;
     }
 
 }//generalized_langevin
